@@ -1,58 +1,32 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 
-st.title("AI 추천 기반 시간표 최적화 시스템")
-st.write("개인의 집중도와 과목 특성을 기반으로 하루 시간표를 추천합니다.")
+st.set_page_config(page_title="AI 추천 기반 시간표 최적화", layout="centered")
 
-st.divider()
+st.title("📅 AI 추천 기반 시간표 최적화 시스템")
 
-sleep_hours = st.slider("수면 시간 (시간)", 4, 10, 7)
+st.markdown("공부 가능 시간을 입력하면, 과목 중요도에 따라 자동으로 시간표를 추천합니다.")
 
-subjects = []
-st.subheader("과목 정보 입력")
+sleep = st.slider("하루 수면 시간 (시간)", 4, 10, 7)
 
-for i in range(3):
-    name = st.text_input(f"과목 {i+1} 이름", key=f"name{i}")
-    importance = st.slider("중요도", 1, 5, 3, key=f"imp{i}")
-    difficulty = st.slider("난이도", 1, 5, 3, key=f"diff{i}")
+st.subheader("과목 입력")
+subjects = st.text_area(
+    "과목명과 중요도를 입력하세요 (예: 수학,5)",
+    "수학,5\n영어,4\n과학,3"
+)
 
-    if name:
-        subjects.append({
-            "name": name,
-            "importance": importance,
-            "difficulty": difficulty
-        })
-
-def focus_level(hour, sleep):
-    focus = 0.6
-    if 9 <= hour <= 11:
-        focus += 0.3
-    if 13 <= hour <= 15:
-        focus -= 0.2
-    if hour >= 21:
-        focus -= 0.3
-    focus += (sleep - 7) * 0.05
-    return max(0.1, min(focus, 1.0))
-
-def score(subject, hour):
-    return subject["importance"] * subject["difficulty"] * focus_level(hour, sleep_hours)
-
-hours = list(range(8, 23))
+study_time = 24 - sleep - 4  # 식사/휴식 4시간 고정
+st.write(f"📌 하루 공부 가능 시간: **{study_time}시간**")
 
 if st.button("시간표 생성"):
-    if not subjects:
-        st.warning("과목을 하나 이상 입력하세요.")
-    else:
-        schedule = []
-        for hour in hours:
-            best = max(subjects, key=lambda s: score(s, hour))
-            schedule.append({"시간": f"{hour}:00", "과목": best["name"]})
+    data = []
+    for line in subjects.split("\n"):
+        name, weight = line.split(",")
+        data.append({"과목": name.strip(), "중요도": int(weight)})
 
-        df = pd.DataFrame(schedule)
-        st.dataframe(df)
+    df = pd.DataFrame(data)
+    df["비율"] = df["중요도"] / df["중요도"].sum()
+    df["추천 공부 시간(시간)"] = (df["비율"] * study_time).round(1)
 
-        focus_values = [focus_level(h, sleep_hours) for h in hours]
-        fig = plt.figure()
-        plt.plot(hours, focus_values)
-        st.pyplot(fig)
+    st.success("✅ 시간표 생성 완료!")
+    st.dataframe(df)
